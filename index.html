@@ -5,13 +5,10 @@
     <meta charset="UTF-8">
     <title>Pedido via Planilha</title>
 
-    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- SheetJS -->
     <script src="xlsx.full.min.js"></script>
 
-    <!-- jsPDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
@@ -25,10 +22,6 @@
         .header-table td {
             border: 1px solid #000 !important;
         }
-
-        .autocomplete-list .autocomplete-item:hover {
-            background: #eee;
-        }
     </style>
 </head>
 
@@ -36,7 +29,7 @@
 
 <div class="container py-4">
 
-    <h3 class="mb-3 text-center">Montar Pedido</h3>
+    <h3 class="text-center mb-4">Montar Pedido</h3>
 
     <!-- CABEÇALHO -->
     <div class="table-responsive">
@@ -54,12 +47,8 @@
                         <option value="Cindini">Cindini</option>
                     </select>
                 </td>
-                <td>
-                    <input id="vendedor" type="text" class="form-control">
-                </td>
-                <td class="text-center">
-                    <span id="dataEmissao"></span>
-                </td>
+                <td><input id="vendedor" type="text" class="form-control"></td>
+                <td class="text-center"><span id="dataEmissao"></span></td>
             </tr>
 
             <tr>
@@ -67,13 +56,11 @@
                 <td><input id="cliente" type="text" class="form-control"></td>
                 <td></td>
             </tr>
-
             <tr>
                 <td>PRAZO:</td>
                 <td><input id="prazo" type="text" class="form-control"></td>
                 <td></td>
             </tr>
-
             <tr>
                 <td>VALIDADE:</td>
                 <td><input id="validade" type="text" class="form-control"></td>
@@ -82,222 +69,175 @@
         </table>
     </div>
 
-    <div class="d-grid gap-2 mb-3">
+    <div class="d-grid mb-4">
         <button onclick="exportPDF()" class="btn btn-primary btn-lg">Exportar PDF</button>
     </div>
 
-    <!-- TABELA PRODUTOS -->
+    <!-- TABELA -->
     <div class="table-responsive">
-        <table class="table table-striped table-bordered align-middle">
+        <table class="table table-bordered align-middle">
             <thead class="table-dark">
-            <tr>
-                <th>Produto</th>
-                <th>Volume/Cx</th>
-                <th>MK%</th>
-                <th>Cotação</th>
-                <th>Custo</th>
-                <th>Preço Venda</th>
-                <th>MK Venda (%)</th>
-            </tr>
+                <tr>
+                    <th>Produto</th>
+                    <th>Volume/Cx</th>
+                    <th>MK%</th>
+                    <th>Cotação</th>
+                    <th>Custo</th>
+                    <th>Preço Venda</th>
+                    <th>MK Venda (%)</th>
+                </tr>
             </thead>
             <tbody id="rows"></tbody>
         </table>
     </div>
 
-    <div class="d-grid gap-2">
+    <div class="d-grid">
         <button onclick="addRow()" class="btn btn-success">Adicionar Linha</button>
     </div>
-
 </div>
 
-
 <script>
-    document.getElementById("dataEmissao").innerText =
-        new Date().toLocaleDateString("pt-BR");
+document.getElementById("dataEmissao").innerText =
+    new Date().toLocaleDateString("pt-BR");
 
-    let produtos = [];
-    let baseRel = [];
+let produtos = [];
+let baseRel = [];
 
-    // ==============================
-    // LER A PLANILHA base.xlsx
-    // ==============================
-    fetch("base.xlsx")
-        .then(r => r.arrayBuffer())
-        .then(buf => {
-            const wb = XLSX.read(buf, { type: "array" });
-            const ws = wb.Sheets["base de dados Rel4426"];
-            const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+fetch("base.xlsx")
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+        const wb = XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets["base de dados Rel4426"];
+        const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-            for (let i = 1; i < json.length; i++) {
-                const G = json[i][6];
-                const O = json[i][14];
-                if (G) {
-                    produtos.push(G);
-                    baseRel.push({ produto: G, custo: O });
-                }
+        for (let i = 1; i < json.length; i++) {
+            const G = json[i][6];
+            const O = json[i][14];
+            if (G) {
+                produtos.push(G);
+                baseRel.push({ produto: G, custo: O });
             }
-
-            addRow();
-        });
-
-    function buscarCusto(prod) {
-        const item = baseRel.find(x => x.produto === prod);
-        return item ? item.custo : "";
-    }
-
-    function calcCotacao(custo, mk) {
-        custo = parseFloat(custo);
-        mk = parseFloat(mk);
-        if (isNaN(custo) || isNaN(mk)) return "";
-        return (custo + (custo * mk / 100)).toFixed(2);
-    }
-
-    // ==============================
-    // AUTOCOMPLETE
-    // ==============================
-    function attachAutocomplete(input, listBox, onSelect) {
-        input.addEventListener("input", () => {
-            const val = input.value.toLowerCase();
-            listBox.innerHTML = "";
-
-            if (!val) {
-                listBox.style.display = "none";
-                return;
-            }
-
-            const filtered = produtos.filter(p =>
-                p.toLowerCase().includes(val)
-            );
-
-            if (filtered.length === 0) {
-                listBox.style.display = "none";
-                return;
-            }
-
-            filtered.forEach(produto => {
-                const item = document.createElement("div");
-                item.className = "p-2 autocomplete-item";
-                item.style.cursor = "pointer";
-                item.innerText = produto;
-
-                item.onclick = () => {
-                    input.value = produto;
-                    listBox.style.display = "none";
-                    onSelect(produto);
-                };
-
-                listBox.appendChild(item);
-            });
-
-            listBox.style.display = "block";
-        });
-
-        document.addEventListener("click", (e) => {
-            if (!input.contains(e.target) && !listBox.contains(e.target)) {
-                listBox.style.display = "none";
-            }
-        });
-    }
-
-    // ==============================
-    // ADICIONAR LINHA
-    // ==============================
-    function addRow() {
-        const tbody = document.getElementById("rows");
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td style="position: relative;">
-                <input type="text" class="form-control produto_input" placeholder="Digite para buscar...">
-                <div class="autocomplete-list border bg-white position-absolute w-100"
-                     style="z-index: 1000; max-height:180px; overflow-y:auto; display:none;"></div>
-            </td>
-
-            <td><input type="number" class="form-control volume"></td>
-
-            <td><input type="number" class="form-control mk" step="0.01"></td>
-
-            <td><input type="text" class="form-control cotacao" readonly></td>
-
-            <td><input type="text" class="form-control custo" readonly></td>
-
-            <td><input type="number" class="form-control preco_venda" step="0.01"></td>
-
-            <td><input type="text" class="form-control mk_venda" readonly></td>
-        `;
-
-        tbody.appendChild(tr);
-
-        const input = tr.querySelector(".produto_input");
-        const listBox = tr.querySelector(".autocomplete-list");
-
-        attachAutocomplete(input, listBox, () => updateRow(tr));
-
-        tr.querySelector(".mk").oninput = () => updateRow(tr);
-        tr.querySelector(".preco_venda").oninput = () => updateRow(tr);
-    }
-
-    // ==============================
-    // ATUALIZA A LINHA
-    // ==============================
-    function updateRow(tr) {
-        const produto = tr.querySelector(".produto_input").value;
-        const mk = tr.querySelector(".mk").value;
-        const custo = buscarCusto(produto);
-        const precoVenda = tr.querySelector(".preco_venda").value;
-
-        tr.querySelector(".custo").value = custo;
-        tr.querySelector(".cotacao").value = calcCotacao(custo, mk);
-
-        let mkVenda = "";
-        if (custo && precoVenda && parseFloat(custo) > 0) {
-            mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1) * 100).toFixed(2) + "%";
         }
 
-        tr.querySelector(".mk_venda").value = mkVenda;
-    }
+        addRow();
+    });
 
-    // ==============================
-    // EXPORTAR PDF
-    // ==============================
-    function exportPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+function buscarCusto(prod) {
+    const item = baseRel.find(x => x.produto === prod);
+    return item ? item.custo : "";
+}
 
-        doc.setFontSize(12);
-        doc.text("COTAÇÃO", 10, 10);
+function calcCotacao(custo, mk) {
+    custo = parseFloat(custo);
+    mk = parseFloat(mk);
+    if (isNaN(custo) || isNaN(mk)) return "";
+    return (custo + (custo * mk / 100)).toFixed(2);
+}
 
-        doc.setFontSize(10);
+function addRow() {
+    const tbody = document.getElementById("rows");
+    const tr = document.createElement("tr");
 
-        doc.text("Empresa: " + document.getElementById("empresa").value, 10, 20);
-        doc.text("Vendedor: " + document.getElementById("vendedor").value, 10, 27);
-        doc.text("Cliente: " + document.getElementById("cliente").value, 10, 34);
-        doc.text("Prazo: " + document.getElementById("prazo").value, 10, 41);
-        doc.text("Validade: " + document.getElementById("validade").value, 10, 48);
+    tr.innerHTML = `
+        <td>
+            <div class="input-group">
+                <input type="text" class="form-control produto_text" placeholder="Digite parte do nome">
+                <button class="btn btn-secondary buscar_btn" type="button">Buscar</button>
+            </div>
+            <select class="form-select mt-2 produto_select" style="display:none;">
+                <option value="">Selecione um produto</option>
+            </select>
+        </td>
 
-        doc.text("Data de Emissão: " + document.getElementById("dataEmissao").innerText, 140, 20);
+        <td><input type="number" class="form-control volume"></td>
+        <td><input type="number" class="form-control mk" step="0.01"></td>
+        <td><input type="text" class="form-control cotacao" readonly></td>
+        <td><input type="text" class="form-control custo" readonly></td>
+        <td><input type="number" class="form-control preco_venda" step="0.01"></td>
+        <td><input type="text" class="form-control mk_venda" readonly></td>
+    `;
 
-        const linhas = [];
-        const trs = document.querySelectorAll("#rows tr");
+    tbody.appendChild(tr);
 
-        trs.forEach(tr => {
-            const produto = tr.querySelector(".produto_input")?.value || "";
-            const volume = tr.querySelector(".volume")?.value || "";
-            const cotacao = tr.querySelector(".cotacao")?.value || "";
+    const input = tr.querySelector(".produto_text");
+    const btn = tr.querySelector(".buscar_btn");
+    const select = tr.querySelector(".produto_select");
 
-            linhas.push([produto, volume, cotacao]);
+    btn.onclick = () => {
+        const termo = input.value.toLowerCase();
+        select.innerHTML = '<option value="">Selecione um produto</option>';
+
+        const filtrados = produtos.filter(p => p.toLowerCase().includes(termo));
+
+        filtrados.forEach(p => {
+            const op = document.createElement("option");
+            op.value = p;
+            op.textContent = p;
+            select.appendChild(op);
         });
 
-        doc.autoTable({
-            startY: 60,
-            head: [["Produto", "Volume", "Cotação"]],
-            body: linhas,
-            styles: { fontSize: 9 },
-            headStyles: { fillColor: [50, 50, 50] }
-        });
+        select.style.display = "block";
+    };
 
-        doc.save("pedido.pdf");
+    select.onchange = () => {
+        input.value = select.value;
+        updateRow(tr);
+    };
+
+    tr.querySelector(".mk").oninput = () => updateRow(tr);
+    tr.querySelector(".preco_venda").oninput = () => updateRow(tr);
+}
+
+function updateRow(tr) {
+    const produto = tr.querySelector(".produto_text").value;
+    const mk = tr.querySelector(".mk").value;
+    const custo = buscarCusto(produto);
+    const precoVenda = tr.querySelector(".preco_venda").value;
+
+    tr.querySelector(".custo").value = custo;
+    tr.querySelector(".cotacao").value = calcCotacao(custo, mk);
+
+    let mkVenda = "";
+    if (custo && precoVenda && parseFloat(custo) > 0) {
+        mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1) * 100).toFixed(2) + "%";
     }
+
+    tr.querySelector(".mk_venda").value = mkVenda;
+}
+
+function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(12);
+    doc.text("COTAÇÃO", 10, 10);
+
+    doc.setFontSize(10);
+    doc.text("Empresa: " + document.getElementById("empresa").value, 10, 20);
+    doc.text("Vendedor: " + document.getElementById("vendedor").value, 10, 27);
+    doc.text("Cliente: " + document.getElementById("cliente").value, 10, 34);
+    doc.text("Prazo: " + document.getElementById("prazo").value, 10, 41);
+    doc.text("Validade: " + document.getElementById("validade").value, 10, 48);
+    doc.text("Data: " + document.getElementById("dataEmissao").innerText, 140, 20);
+
+    const linhas = [];
+    document.querySelectorAll("#rows tr").forEach(tr => {
+        const p = tr.querySelector(".produto_text").value;
+        const v = tr.querySelector(".volume").value;
+        const c = tr.querySelector(".cotacao").value;
+
+        linhas.push([p, v, c]);
+    });
+
+    doc.autoTable({
+        startY: 60,
+        head: [["Produto", "Volume", "Cotação"]],
+        body: linhas,
+        styles: { fontSize: 9 }
+    });
+
+    doc.save("pedido.pdf");
+}
 </script>
 
 </body>
