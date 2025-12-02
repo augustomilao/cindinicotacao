@@ -27,118 +27,118 @@
 
 <body class="bg-light">
 
-<div class="container py-4">
+    <div class="container py-4">
 
-    <h3 class="text-center mb-4">Montar Pedido</h3>
+        <h3 class="text-center mb-4">Montar Pedido</h3>
 
-    <!-- CABEÇALHO -->
-    <div class="table-responsive">
-        <table class="table table-bordered header-table">
-            <tr class="table-dark">
-                <th>COTAÇÃO</th>
-                <th>NOME DE QUEM ESTÁ FAZENDO</th>
-                <th>DATA DE EMISSÃO</th>
-            </tr>
-
-            <tr>
-                <td>
-                    <select id="empresa" class="form-select">
-                        <option value="Maia">Maia</option>
-                        <option value="Cindini">Cindini</option>
-                    </select>
-                </td>
-                <td><input id="vendedor" type="text" class="form-control"></td>
-                <td class="text-center"><span id="dataEmissao"></span></td>
-            </tr>
-
-            <tr>
-                <td>CLIENTE:</td>
-                <td><input id="cliente" type="text" class="form-control"></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td>PRAZO:</td>
-                <td><input id="prazo" type="text" class="form-control"></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td>VALIDADE:</td>
-                <td><input id="validade" type="text" class="form-control"></td>
-                <td></td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="d-grid mb-4">
-        <button onclick="exportPDF()" class="btn btn-primary btn-lg">Exportar PDF</button>
-    </div>
-
-    <!-- TABELA -->
-    <div class="table-responsive">
-        <table class="table table-bordered align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Produto</th>
-                    <th>Volume/Cx</th>
-                    <th>MK%</th>
-                    <th>Cotação</th>
-                    <th>Custo</th>
-                    <th>Preço Venda</th>
-                    <th>MK Venda (%)</th>
+        <!-- CABEÇALHO -->
+        <div class="table-responsive">
+            <table class="table table-bordered header-table">
+                <tr class="table-dark">
+                    <th>COTAÇÃO</th>
+                    <th>NOME DE QUEM ESTÁ FAZENDO</th>
+                    <th>DATA DE EMISSÃO</th>
                 </tr>
-            </thead>
-            <tbody id="rows"></tbody>
-        </table>
+
+                <tr>
+                    <td>
+                        <select id="empresa" class="form-select">
+                            <option value="Maia">Maia</option>
+                            <option value="Cindini">Cindini</option>
+                        </select>
+                    </td>
+                    <td><input id="vendedor" type="text" class="form-control"></td>
+                    <td class="text-center"><span id="dataEmissao"></span></td>
+                </tr>
+
+                <tr>
+                    <td>CLIENTE:</td>
+                    <td><input id="cliente" type="text" class="form-control"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>PRAZO:</td>
+                    <td><input id="prazo" type="text" class="form-control"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>VALIDADE:</td>
+                    <td><input id="validade" type="text" class="form-control"></td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="d-grid mb-4">
+            <button onclick="exportPDF()" class="btn btn-primary btn-lg">Exportar PDF</button>
+        </div>
+
+        <!-- TABELA -->
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Produto</th>
+                        <th>Volume/Cx</th>
+                        <th>MK%</th>
+                        <th>Cotação</th>
+                        <th>Custo</th>
+                        <th>Preço Venda</th>
+                        <th>MK Venda (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+            </table>
+        </div>
+
+        <div class="d-grid">
+            <button onclick="addRow()" class="btn btn-success">Adicionar Linha</button>
+        </div>
     </div>
 
-    <div class="d-grid">
-        <button onclick="addRow()" class="btn btn-success">Adicionar Linha</button>
-    </div>
-</div>
+    <script>
+        document.getElementById("dataEmissao").innerText =
+            new Date().toLocaleDateString("pt-BR");
 
-<script>
-document.getElementById("dataEmissao").innerText =
-    new Date().toLocaleDateString("pt-BR");
+        let produtos = [];
+        let baseRel = [];
 
-let produtos = [];
-let baseRel = [];
+        fetch("base.xlsx")
+            .then(r => r.arrayBuffer())
+            .then(buf => {
+                const wb = XLSX.read(buf, { type: "array" });
+                const ws = wb.Sheets["base de dados Rel4426"];
+                const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-fetch("base.xlsx")
-    .then(r => r.arrayBuffer())
-    .then(buf => {
-        const wb = XLSX.read(buf, { type: "array" });
-        const ws = wb.Sheets["base de dados Rel4426"];
-        const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                for (let i = 1; i < json.length; i++) {
+                    const G = json[i][6];
+                    const O = json[i][14];
+                    if (G) {
+                        produtos.push(G);
+                        baseRel.push({ produto: G, custo: O });
+                    }
+                }
 
-        for (let i = 1; i < json.length; i++) {
-            const G = json[i][6];
-            const O = json[i][14];
-            if (G) {
-                produtos.push(G);
-                baseRel.push({ produto: G, custo: O });
-            }
+                addRow();
+            });
+
+        function buscarCusto(prod) {
+            const item = baseRel.find(x => x.produto === prod);
+            return item ? item.custo : "";
         }
 
-        addRow();
-    });
+        function calcCotacao(custo, mk) {
+            custo = parseFloat(custo);
+            mk = parseFloat(mk);
+            if (isNaN(custo) || isNaN(mk)) return "";
+            return (custo + (custo * mk / 100)).toFixed(2);
+        }
 
-function buscarCusto(prod) {
-    const item = baseRel.find(x => x.produto === prod);
-    return item ? item.custo : "";
-}
+        function addRow() {
+            const tbody = document.getElementById("rows");
+            const tr = document.createElement("tr");
 
-function calcCotacao(custo, mk) {
-    custo = parseFloat(custo);
-    mk = parseFloat(mk);
-    if (isNaN(custo) || isNaN(mk)) return "";
-    return (custo + (custo * mk / 100)).toFixed(2);
-}
-
-function addRow() {
-    const tbody = document.getElementById("rows");
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
+            tr.innerHTML = `
         <td>
             <div class="input-group">
                 <input type="text" class="form-control produto_text" placeholder="Digite parte do nome">
@@ -157,88 +157,99 @@ function addRow() {
         <td><input type="text" class="form-control mk_venda" readonly></td>
     `;
 
-    tbody.appendChild(tr);
+            tbody.appendChild(tr);
 
-    const input = tr.querySelector(".produto_text");
-    const btn = tr.querySelector(".buscar_btn");
-    const select = tr.querySelector(".produto_select");
+            const input = tr.querySelector(".produto_text");
+            const btn = tr.querySelector(".buscar_btn");
+            const select = tr.querySelector(".produto_select");
 
-    btn.onclick = () => {
-        const termo = input.value.toLowerCase();
-        select.innerHTML = '<option value="">Selecione um produto</option>';
+            btn.onclick = () => {
+                const termo = input.value.toLowerCase();
+                select.innerHTML = '<option value="">Selecione um produto</option>';
 
-        const filtrados = produtos.filter(p => p.toLowerCase().includes(termo));
+                const vistos = new Set();
+                const filtrados = produtos.filter(p => {
+                    const nome = p.toLowerCase();
+                    if (nome.includes(termo.toLowerCase()) && !vistos.has(nome)) {
+                        vistos.add(nome);
+                        return true;
+                    }
+                    return false;
+                });
 
-        filtrados.forEach(p => {
-            const op = document.createElement("option");
-            op.value = p;
-            op.textContent = p;
-            select.appendChild(op);
-        });
+                filtrados.forEach(p => {
+                    const op = document.createElement("option");
+                    op.value = p;
+                    op.textContent = p;
+                    select.appendChild(op);
+                });
 
-        select.style.display = "block";
-    };
 
-    select.onchange = () => {
-        input.value = select.value;
-        updateRow(tr);
-    };
 
-    tr.querySelector(".mk").oninput = () => updateRow(tr);
-    tr.querySelector(".preco_venda").oninput = () => updateRow(tr);
-}
+                select.style.display = "block";
+            };
 
-function updateRow(tr) {
-    const produto = tr.querySelector(".produto_text").value;
-    const mk = tr.querySelector(".mk").value;
-    const custo = buscarCusto(produto);
-    const precoVenda = tr.querySelector(".preco_venda").value;
+            select.onchange = () => {
+                input.value = select.value;
+                updateRow(tr);
+            };
 
-    tr.querySelector(".custo").value = custo;
-    tr.querySelector(".cotacao").value = calcCotacao(custo, mk);
+            tr.querySelector(".mk").oninput = () => updateRow(tr);
+            tr.querySelector(".preco_venda").oninput = () => updateRow(tr);
+        }
 
-    let mkVenda = "";
-    if (custo && precoVenda && parseFloat(custo) > 0) {
-        mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1) * 100).toFixed(2) + "%";
-    }
+        function updateRow(tr) {
+            const produto = tr.querySelector(".produto_text").value;
+            const mk = tr.querySelector(".mk").value;
+            const custo = buscarCusto(produto);
+            const precoVenda = tr.querySelector(".preco_venda").value;
 
-    tr.querySelector(".mk_venda").value = mkVenda;
-}
+            tr.querySelector(".custo").value = custo;
+            tr.querySelector(".cotacao").value = calcCotacao(custo, mk);
 
-function exportPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+            let mkVenda = "";
+            if (custo && precoVenda && parseFloat(custo) > 0) {
+                mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1) * 100).toFixed(2) + "%";
+            }
 
-    doc.setFontSize(12);
-    doc.text("COTAÇÃO", 10, 10);
+            tr.querySelector(".mk_venda").value = mkVenda;
+        }
 
-    doc.setFontSize(10);
-    doc.text("Empresa: " + document.getElementById("empresa").value, 10, 20);
-    doc.text("Vendedor: " + document.getElementById("vendedor").value, 10, 27);
-    doc.text("Cliente: " + document.getElementById("cliente").value, 10, 34);
-    doc.text("Prazo: " + document.getElementById("prazo").value, 10, 41);
-    doc.text("Validade: " + document.getElementById("validade").value, 10, 48);
-    doc.text("Data: " + document.getElementById("dataEmissao").innerText, 140, 20);
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
 
-    const linhas = [];
-    document.querySelectorAll("#rows tr").forEach(tr => {
-        const p = tr.querySelector(".produto_text").value;
-        const v = tr.querySelector(".volume").value;
-        const c = tr.querySelector(".cotacao").value;
+            doc.setFontSize(12);
+            doc.text("COTAÇÃO", 10, 10);
 
-        linhas.push([p, v, c]);
-    });
+            doc.setFontSize(10);
+            doc.text("Empresa: " + document.getElementById("empresa").value, 10, 20);
+            doc.text("Vendedor: " + document.getElementById("vendedor").value, 10, 27);
+            doc.text("Cliente: " + document.getElementById("cliente").value, 10, 34);
+            doc.text("Prazo: " + document.getElementById("prazo").value, 10, 41);
+            doc.text("Validade: " + document.getElementById("validade").value, 10, 48);
+            doc.text("Data: " + document.getElementById("dataEmissao").innerText, 140, 20);
 
-    doc.autoTable({
-        startY: 60,
-        head: [["Produto", "Volume", "Cotação"]],
-        body: linhas,
-        styles: { fontSize: 9 }
-    });
+            const linhas = [];
+            document.querySelectorAll("#rows tr").forEach(tr => {
+                const p = tr.querySelector(".produto_text").value;
+                const v = tr.querySelector(".volume").value;
+                const c = tr.querySelector(".cotacao").value;
 
-    doc.save("pedido.pdf");
-}
-</script>
+                linhas.push([p, v, c]);
+            });
+
+            doc.autoTable({
+                startY: 60,
+                head: [["Produto", "Volume", "Cotação"]],
+                body: linhas,
+                styles: { fontSize: 9 }
+            });
+
+            doc.save("pedido.pdf");
+        }
+    </script>
 
 </body>
+
 </html>
