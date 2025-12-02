@@ -25,6 +25,10 @@
         .header-table td {
             border: 1px solid #000 !important;
         }
+
+        .autocomplete-list .autocomplete-item:hover {
+            background: #eee;
+        }
     </style>
 </head>
 
@@ -86,15 +90,15 @@
     <div class="table-responsive">
         <table class="table table-striped table-bordered align-middle">
             <thead class="table-dark">
-                <tr>
-                    <th>Produto</th>
-                    <th>Volume/Cx</th>
-                    <th>MK%</th>
-                    <th>Cotação</th>
-                    <th>Custo</th>
-                    <th>Preço Venda</th>
-                    <th>MK Venda</th>
-                </tr>
+            <tr>
+                <th>Produto</th>
+                <th>Volume/Cx</th>
+                <th>MK%</th>
+                <th>Cotação</th>
+                <th>Custo</th>
+                <th>Preço Venda</th>
+                <th>MK Venda (%)</th>
+            </tr>
             </thead>
             <tbody id="rows"></tbody>
         </table>
@@ -108,18 +112,15 @@
 
 
 <script>
-    // ======================
-    // DATA AUTOMÁTICA
-    // ======================
     document.getElementById("dataEmissao").innerText =
         new Date().toLocaleDateString("pt-BR");
 
     let produtos = [];
     let baseRel = [];
 
-    // ======================
-    // LER PLANILHA
-    // ======================
+    // ==============================
+    // LER A PLANILHA base.xlsx
+    // ==============================
     fetch("base.xlsx")
         .then(r => r.arrayBuffer())
         .then(buf => {
@@ -128,8 +129,8 @@
             const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
             for (let i = 1; i < json.length; i++) {
-                const G = json[i][6];  // produto
-                const O = json[i][14]; // custo
+                const G = json[i][6];
+                const O = json[i][14];
                 if (G) {
                     produtos.push(G);
                     baseRel.push({ produto: G, custo: O });
@@ -139,7 +140,6 @@
             addRow();
         });
 
-    // Buscar custo por produto da planilha
     function buscarCusto(prod) {
         const item = baseRel.find(x => x.produto === prod);
         return item ? item.custo : "";
@@ -152,19 +152,65 @@
         return (custo + (custo * mk / 100)).toFixed(2);
     }
 
-    // ======================
+    // ==============================
+    // AUTOCOMPLETE
+    // ==============================
+    function attachAutocomplete(input, listBox, onSelect) {
+        input.addEventListener("input", () => {
+            const val = input.value.toLowerCase();
+            listBox.innerHTML = "";
+
+            if (!val) {
+                listBox.style.display = "none";
+                return;
+            }
+
+            const filtered = produtos.filter(p =>
+                p.toLowerCase().includes(val)
+            );
+
+            if (filtered.length === 0) {
+                listBox.style.display = "none";
+                return;
+            }
+
+            filtered.forEach(produto => {
+                const item = document.createElement("div");
+                item.className = "p-2 autocomplete-item";
+                item.style.cursor = "pointer";
+                item.innerText = produto;
+
+                item.onclick = () => {
+                    input.value = produto;
+                    listBox.style.display = "none";
+                    onSelect(produto);
+                };
+
+                listBox.appendChild(item);
+            });
+
+            listBox.style.display = "block";
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!input.contains(e.target) && !listBox.contains(e.target)) {
+                listBox.style.display = "none";
+            }
+        });
+    }
+
+    // ==============================
     // ADICIONAR LINHA
-    // ======================
+    // ==============================
     function addRow() {
         const tbody = document.getElementById("rows");
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td>
-                <select class="form-select produto">
-                    <option value="">Selecione</option>
-                    ${produtos.map(p => `<option value="${p}">${p}</option>`).join("")}
-                </select>
+            <td style="position: relative;">
+                <input type="text" class="form-control produto_input" placeholder="Digite para buscar...">
+                <div class="autocomplete-list border bg-white position-absolute w-100"
+                     style="z-index: 1000; max-height:180px; overflow-y:auto; display:none;"></div>
             </td>
 
             <td><input type="number" class="form-control volume"></td>
@@ -182,16 +228,20 @@
 
         tbody.appendChild(tr);
 
-        tr.querySelector(".produto").onchange = () => updateRow(tr);
+        const input = tr.querySelector(".produto_input");
+        const listBox = tr.querySelector(".autocomplete-list");
+
+        attachAutocomplete(input, listBox, () => updateRow(tr));
+
         tr.querySelector(".mk").oninput = () => updateRow(tr);
         tr.querySelector(".preco_venda").oninput = () => updateRow(tr);
     }
 
-    // ======================
-    // ATUALIZAR LINHA
-    // ======================
+    // ==============================
+    // ATUALIZA A LINHA
+    // ==============================
     function updateRow(tr) {
-        const produto = tr.querySelector(".produto").value;
+        const produto = tr.querySelector(".produto_input").value;
         const mk = tr.querySelector(".mk").value;
         const custo = buscarCusto(produto);
         const precoVenda = tr.querySelector(".preco_venda").value;
@@ -199,18 +249,17 @@
         tr.querySelector(".custo").value = custo;
         tr.querySelector(".cotacao").value = calcCotacao(custo, mk);
 
-        // Cálculo MK Venda
         let mkVenda = "";
         if (custo && precoVenda && parseFloat(custo) > 0) {
-            mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1).toFixed(4))*100;
+            mkVenda = ((parseFloat(precoVenda) / parseFloat(custo) - 1) * 100).toFixed(2) + "%";
         }
 
         tr.querySelector(".mk_venda").value = mkVenda;
     }
 
-    // ======================
+    // ==============================
     // EXPORTAR PDF
-    // ======================
+    // ==============================
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -232,11 +281,10 @@
         const trs = document.querySelectorAll("#rows tr");
 
         trs.forEach(tr => {
-            const produto = tr.querySelector(".produto")?.value || "";
+            const produto = tr.querySelector(".produto_input")?.value || "";
             const volume = tr.querySelector(".volume")?.value || "";
             const cotacao = tr.querySelector(".cotacao")?.value || "";
 
-            // PDF NÃO INCLUI PREÇOS / MK
             linhas.push([produto, volume, cotacao]);
         });
 
